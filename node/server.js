@@ -40,8 +40,11 @@ connection_fiches.connect(function (err) {
 
 const schema = Joi.object({
     query: Joi.string().required(),
-    params: Joi.array().items(Joi.alternatives().try(Joi.string(), Joi.number())).required()
+    params: Joi.array().items(
+        Joi.alternatives().try(Joi.string(), Joi.number(), Joi.allow(null))
+    ).required()
 });
+
 
 async function request_fiche(query, params = []) {
     const validation = schema.validate({ query, params });
@@ -180,42 +183,23 @@ app.post('/create_fiche', async (req, res) => {
     console.log(title)
     try {
         const tableName = `fiche_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-        const creatFicheResultat =await request_fiche('INSERT INTO fiches_meta (titre, table_name) VALUES (?, ?)',[title, tableName]);
+        const creatFicheResultat = await request_fiche('INSERT INTO fiches_meta (titre, table_name) VALUES (?, ?)',[title, tableName]);
 
         // Créer la table spécifique pour cette fiche
         await createFicheTable(tableName);
 
         // Insérer la première version vide dans la table de la fiche
-        await new Promise((resolve, reject) => {
-            let fiche = {
-                titre: "",
-                groupe: "none",
-                contenu: [],
-                date_creation: new Date().toISOString()
-            };
-            fiche = JSON.stringify(fiche);
-            connection_fiches.query(
-                `INSERT INTO ${tableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                ['', fiche, 'Version initiale', '', '', '', ''],
-                (error, results) => {
-                    if (error) return reject(error);
-                    resolve(results); 
-                }
-            );
+        let fiche = JSON.stringify({
+            titre: "",
+            groupe: "none",
+            contenu: [],
+            date_creation: new Date().toISOString()
         });
-        await request_fiche("`INSERT INTO ${tableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)",['', fiche, 'Version initiale', '', '', '', '']);
+        await request_fiche(`INSERT INTO ${tableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,['', fiche, 'Version initiale', '', '', '', '']);
 
         // Créer la liaison utilisateur-fiche
-        await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                'INSERT INTO user_fiches (user_id, fiche_id) VALUES (?, ?)',
-                [userData.userID, creatFicheResultat.results.insertId],
-                (error, results) => {
-                    if (error) reject(error);
-                    resolve(results);
-                }
-            );
-        });
+        await request_fiche('INSERT INTO user_fiches (user_id, fiche_id) VALUES (?, ?)',[userData.userID, creatFicheResultat.results.insertId]);
+
         res.json({
             success: true,
             ficheId: creatFicheResultat.results.insertId,
@@ -240,27 +224,17 @@ app.get('/get_fiche', async (req, res) => {
 
     const ficheId = req.query.id;
 
-
-    const fiche = await new Promise((resolve, reject) => {
-        connection_fiches.query('SELECT * FROM fiches_meta WHERE id_fiche = ?', [ficheId], (error, results) => {
-            if (error) return reject(error);
-            resolve(results[0]);
-        });
-    });
+    const fiche = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?',[ficheId]);
 
     if (!fiche) {
         res.status(404).send('Fiche non trouvée');
         return;
     }
 
-    const ficheTableName = fiche.table_name;
+    const ficheTableName = fiche[0].table_name;
 
-    const fiche_content = await new Promise((resolve, reject) => {
-        connection_fiches.query(`SELECT * FROM ${ficheTableName} ORDER BY version_id DESC LIMIT 1`, (error, results) => {
-            if (error) return reject(error);
-            resolve(results);
-        });
-    });
+    const fiche_content = await request_fiche(`SELECT * FROM ${ficheTableName} ORDER BY version_id DESC LIMIT 1`,[]);
+
     let fiche_content_only = fiche_content[0];
     let decryptedInnerHtml = fiche_content_only.inner_html;
     let decryptedLocalStorage = fiche_content_only.JSON_Storage;
@@ -292,27 +266,17 @@ app.post('/get_fiche_by_version', async (req, res) => {
     const ficheId = req.query.id;
     const versionId = req.body.version;
 
-
-    const fiche = await new Promise((resolve, reject) => {
-        connection_fiches.query('SELECT * FROM fiches_meta WHERE id_fiche = ?', [ficheId], (error, results) => {
-            if (error) return reject(error);
-            resolve(results[0]);
-        });
-    });
+    const fiche = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?',[ficheId]);
 
     if (!fiche) {
         res.status(404).send('Fiche non trouvée');
         return;
     }
 
-    const ficheTableName = fiche.table_name;
+    const ficheTableName = fiche[0].table_name;
 
-    const fiche_content = await new Promise((resolve, reject) => {
-        connection_fiches.query(`SELECT * FROM ${ficheTableName} WHERE version_id = ${versionId}`, (error, results) => {
-            if (error) return reject(error);
-            resolve(results);
-        });
-    });
+    const fiche_content = await request_fiche(`SELECT * FROM ${ficheTableName}  WHERE version_id = ?`,[versionId]);
+
     let fiche_content_only = fiche_content[0];
     let decryptedInnerHtml = fiche_content_only.inner_html;
     let decryptedLocalStorage = fiche_content_only.JSON_Storage;
@@ -344,39 +308,21 @@ app.post('/change_last_version', async (req, res) => {
 
 
     // copier la version selectionnée comme nouvelle version
-    const fiche = await new Promise((resolve, reject) => {
-        connection_fiches.query('SELECT * FROM fiches_meta WHERE id_fiche = ?', [ficheId], (error, results) => {
-            if (error) return reject(error);
-            resolve(results[0]);
-        });
-    });
+
+    const fiche = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?',[ficheId]);
 
     if (!fiche) {
         res.status(404).send('Fiche non trouvée');
         return;
     }
 
-    const ficheTableName = fiche.table_name;
+    const ficheTableName = fiche[0].table_name;
 
-    const fiche_content = await new Promise((resolve, reject) => {
-        connection_fiches.query(`SELECT * FROM ${ficheTableName} WHERE version_id = ${version}`, (error, results) => {
-            if (error) return reject(error);
-            resolve(results);
-        });
-    });
+    const fiche_content = await request_fiche(`SELECT * FROM ${ficheTableName} WHERE version_id = ?`,[version]);
 
     const fiche_content_only = fiche_content[0];
 
-    await new Promise((resolve, reject) => {
-        connection_fiches.query(
-            `INSERT INTO ${ficheTableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [fiche_content_only.inner_html, fiche_content_only.JSON_Storage, fiche_content_only.commentaire, fiche_content_only.iv_inner, fiche_content_only.authTag_inner, fiche_content_only.iv_local, fiche_content_only.authTag_local],
-            (error, results) => {
-                if (error) return reject(error);
-                resolve(results);
-            }
-        );
-    });
+    await request_fiche(`INSERT INTO ${ficheTableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,[fiche_content_only.inner_html, fiche_content_only.JSON_Storage, fiche_content_only.commentaire, fiche_content_only.iv_inner, fiche_content_only.authTag_inner, fiche_content_only.iv_local, fiche_content_only.authTag_local]);
 
     res.json({
         success: true,
@@ -395,26 +341,17 @@ app.get('/historique_api', async (req, res) => {
     const ficheId = req.query.id;
 
 
-    const fiche = await new Promise((resolve, reject) => {
-        connection_fiches.query('SELECT * FROM fiches_meta WHERE id_fiche = ?', [ficheId], (error, results) => {
-            if (error) return reject(error);
-            resolve(results[0]);
-        });
-    });
+    const fiche = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?',[ficheId]);
 
     if (!fiche) {
         res.status(404).send('Fiche non trouvée');
         return;
     }
 
-    const ficheTableName = fiche.table_name;
+    const ficheTableName = fiche[0].table_name;
 
-    const fiche_content = await new Promise((resolve, reject) => {
-        connection_fiches.query(`SELECT * FROM ${ficheTableName} ORDER BY version_id DESC LIMIT 1`, (error, results) => {
-            if (error) return reject(error);
-            resolve(results);
-        });
-    });
+    const fiche_content =  await request_fiche(`SELECT * FROM ${ficheTableName} ORDER BY version_id DESC LIMIT 1`,[]);
+
     let version = fiche_content[0].version_id;
     res.json({
         success: true,
@@ -440,19 +377,14 @@ app.post('/save_fiche', async (req, res) => {
 
     const { ficheId, innerHTML, JSON_Storage, commentaire, versionId } = req.body;
 
-    const fiche = await new Promise((resolve, reject) => {
-        connection_fiches.query('SELECT * FROM fiches_meta WHERE id_fiche = ?', [ficheId], (error, results) => {
-            if (error) return reject(error);
-            resolve(results[0]);
-        });
-    });
+    const fiche = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?', [ficheId]);
 
     if (!fiche) {
         res.status(404).send('Fiche non trouvée');
         return;
     }
 
-    const ficheTableName = fiche.table_name;
+    const ficheTableName = fiche[0].table_name;
 
     const secondaryKey = Buffer.from(req.cookies.secondaryKey, 'hex');
 
@@ -460,16 +392,7 @@ app.post('/save_fiche', async (req, res) => {
     const { iv: iv_local, encryptedData: JSON_Storage_enc, authTag: authTag_local } = encryptWithSecondaryKey(JSON_Storage, secondaryKey);
     // console.log("la fiche ", ficheTableName," a été sauvegardée");
     try {
-        await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                `INSERT INTO ${ficheTableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [inner_html, JSON_Storage_enc, commentaire, iv_inner, authTag_inner, iv_local, authTag_local],
-                (error, results) => {
-                    if (error) return reject(error);
-                    resolve(results);
-                }
-            );
-        });
+        await request_fiche(`INSERT INTO ${ficheTableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,[inner_html, JSON_Storage_enc, commentaire, iv_inner, authTag_inner, iv_local, authTag_local]);
 
         res.json({
             success: true,
@@ -490,25 +413,15 @@ app.get("/get_all_fiche_by_user", async (req, res) => {
     const secondaryKey = Buffer.from(req.cookies.secondaryKey, 'hex');
 
     try {
-        const fiches = await new Promise((resolve, reject) => {
-            connection_fiches.query('SELECT * FROM user_fiches WHERE user_id = ? ORDER BY date_attribution DESC', [userData.userID], (error, results) => {
-                if (error) return reject(error);
-                resolve(results);
-            });
-        });
+        const fiches = await request_fiche('SELECT * FROM user_fiches WHERE user_id = ? ORDER BY date_attribution DESC',[userData.userID]);
 
         // Récupérer les métadonnées pour chaque fiche
         const fichesAvecMeta = await Promise.all(
             fiches.map(async (fiche) => {
-                const ficheMeta = await new Promise((resolve, reject) => {
-                    connection_fiches.query('SELECT * FROM fiches_meta WHERE id_fiche = ?', [fiche.fiche_id], (error, results) => {
-                        if (error) return reject(error);
-                        resolve(results[0]); // Supposons qu'il y ait une seule correspondance
-                    });
-                });
+                const ficheMeta = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?',[fiche.fiche_id]);
                 return {
                     ...fiche,
-                    meta: ficheMeta,
+                    meta: ficheMeta[0],
                 };
             })
         );
@@ -522,25 +435,19 @@ app.get("/get_all_fiche_by_user", async (req, res) => {
                     throw new Error('Nom de table invalide détecté.');
                 }
 
-                const ficheDonnees = await new Promise((resolve, reject) => {
-                    const query = `SELECT * FROM ${tableName} ORDER BY version_id DESC `;
-                    connection_fiches.query(query, (error, results) => {
-                        if (error) return reject(error);
-                        resolve(results[0]);
-                    });
-                });
-
-                if (ficheDonnees.iv_local) {
-                    const original_donne = ficheDonnees.JSON_Storage;
-                    const iv = ficheDonnees.iv_local;
-                    const authTag = ficheDonnees.authTag_local;
+                const ficheDonnees = await request_fiche(`SELECT * FROM ${tableName} ORDER BY version_id DESC`,[]);
+                
+                if (ficheDonnees[0].iv_local) {
+                    const original_donne = ficheDonnees[0].JSON_Storage;
+                    const iv = ficheDonnees[0].iv_local;
+                    const authTag = ficheDonnees[0].authTag_local;
                     const decrip_donne = decryptWithSecondaryKey(original_donne, secondaryKey, iv, authTag)
 
-                    ficheDonnees.JSON_Storage = decrip_donne;
+                    ficheDonnees[0].JSON_Storage = decrip_donne;
                 }
                 return {
                     id_fiche: fiche_meta.fiche_id,
-                    donnees: ficheDonnees,
+                    donnees: ficheDonnees[0],
                 };
             })
         );
@@ -565,17 +472,8 @@ app.delete('/delete_fiche', async (req, res) => {
     }
 
     try {
-        // Vérifier si la fiche appartient à l'utilisateur
-        const ficheVerif = await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                'SELECT * FROM user_fiches WHERE fiche_id = ? AND user_id = ?',
-                [ficheId, userData.userID],
-                (error, results) => {
-                    if (error) return reject(error);
-                    resolve(results[0]);
-                }
-            );
-        });
+
+        const ficheVerif = await request_fiche(`SELECT * FROM user_fiches WHERE fiche_id = ? AND user_id = ?`,[ficheId, userData.userID]);
 
         if (!ficheVerif) {
             res.status(403).send('La fiche ne vous appartient pas');
@@ -583,60 +481,25 @@ app.delete('/delete_fiche', async (req, res) => {
         }
 
         // Récupérer les métadonnées de la fiche
-        const fiche = await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                'SELECT * FROM fiches_meta WHERE id_fiche = ?',
-                [ficheId],
-                (error, results) => {
-                    if (error) return reject(error);
-                    resolve(results[0]);
-                }
-            );
-        });
+        const fiche = await request_fiche('SELECT * FROM fiches_meta WHERE id_fiche = ?',[ficheId]);
 
         if (!fiche) {
             res.status(404).send('Fiche non trouvée');
             return;
         }
 
-        const ficheTableName = fiche.table_name;
+        const ficheTableName = fiche[0].table_name;
 
         // Supprimer la table associée à la fiche de manière sécurisée
         if (ficheTableName) {
-            await new Promise((resolve, reject) => {
-                connection_fiches.query(
-                    `DROP TABLE IF EXISTS \`${ficheTableName}\``,
-                    (error, results) => {
-                        if (error) return reject(error);
-                        resolve(results);
-                    }
-                );
-            });
+            await request_fiche(`DROP TABLE IF EXISTS \`${ficheTableName}\``,[]);
         }
 
         // Supprimer la liaison utilisateur-fiche
-        await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                'DELETE FROM user_fiches WHERE fiche_id = ?',
-                [ficheId],
-                (error, results) => {
-                    if (error) return reject(error);
-                    resolve(results);
-                }
-            );
-        });
+        await request_fiche('DELETE FROM user_fiches WHERE fiche_id = ?',[ficheId]);
 
         // Supprimer les métadonnées de la fiche
-        await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                'DELETE FROM fiches_meta WHERE id_fiche = ?',
-                [ficheId],
-                (error, results) => {
-                    if (error) return reject(error);
-                    resolve(results);
-                }
-            );
-        });
+        await request_fiche('DELETE FROM fiches_meta WHERE id_fiche = ?',[ficheId]);
 
         res.json({
             success: true,
@@ -656,16 +519,7 @@ app.get('/GetAllGroupeByUser', async (req, res) => {
 
     try {
         // D'abord, récupérer les informations de base des fiches
-        const tablesInfo = await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                `SELECT id_groupe, nom_groupe FROM groupe WHERE user_id = ?`,
-                [userData.userID],
-                (error, results) => {
-                    if (error) reject(error);
-                    resolve(results);
-                }
-            );
-        });
+        const tablesInfo = await request_fiche(`SELECT id_groupe, nom_groupe FROM groupe WHERE user_id = ?`,[userData.userID]);
 
         res.json({
             success: true,
@@ -687,16 +541,7 @@ app.post("/create_groupe", async (req, res) => {
 
     try {
         // D'abord, récupérer les informations de base des fiches
-        const creation = await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                `INSERT INTO groupe (nom_groupe,user_id) VALUES (?,?)`,
-                [nom, userData.userID],
-                (error, results) => {
-                    if (error) reject(error);
-                    resolve(results);
-                }
-            );
-        });
+        const creation = await request_fiche(`INSERT INTO groupe (nom_groupe,user_id) VALUES (?,?)`,[nom, userData.userID]);
 
         res.json({
             success: true,
@@ -717,19 +562,10 @@ app.get('/get_all_fiche_in_groupe', async (req, res) => {
     
     try {
         // D'abord, récupérer les informations de base des fiches
-        const tablesInfo = await new Promise((resolve, reject) => {
-            connection_fiches.query(
-                `SELECT groupe.id_groupe, groupe.nom_groupe, fiches_meta.table_name,fiches_meta.id_fiche
+        const tablesInfo = await request_fiche(`SELECT groupe.id_groupe, groupe.nom_groupe, fiches_meta.table_name,fiches_meta.id_fiche
                 FROM groupe
                 LEFT JOIN fiches_meta ON fiches_meta.groupe_id = groupe.id_groupe
-                WHERE groupe.user_id = ?`,
-                [userData.userID],
-                (error, results) => {
-                    if (error) reject(error);
-                    resolve(results);
-                }
-            );
-        });
+                WHERE groupe.user_id = ?`,[userData.userID]);
 
         // Pour chaque groupe, récupérer la dernière version de chaque fiche
         const allGroupFiches = [];
@@ -743,20 +579,13 @@ app.get('/get_all_fiche_in_groupe', async (req, res) => {
             }
 
             // Récupérer la dernière version de la fiche pour chaque table (chaque fiche est dans sa propre table)
-            const fichesVersion = await new Promise((resolve, reject) => {
-                const query = `
+            const fichesVersion = await request_fiche(`
                     SELECT *
                     FROM ${table_name}
                     ORDER BY version_id DESC
                     LIMIT 1
-                `;
-                
-                connection_fiches.query(query, (error, results) => {
-                    if (error) reject(error);
-                    resolve(results);
-                });
-            });
-
+                `,[]);
+            
             // Décryptage des fiches si nécessaire
             const fichesVersion_final = fichesVersion[0];
             if (fichesVersion_final && fichesVersion_final.iv_local) {
@@ -803,12 +632,7 @@ app.post('/ChangeGroupeByID', async (req, res) => {
     const groupe_id = req.body.groupe_id;
 
     try {
-        const fiches = await new Promise((resolve, reject) => {
-            connection_fiches.query(`UPDATE fiches_meta SET groupe_id = ? WHERE id_fiche = ?`, [groupe_id,id], (error, results) => {
-                if (error) return reject(error);
-                resolve(results);
-            });
-        });
+        await request_fiche(`UPDATE fiches_meta SET groupe_id = ? WHERE id_fiche = ?`,[groupe_id,id]);
 
         res.json({
             success: true,
