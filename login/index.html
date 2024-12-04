@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connexion - PaperBall</title>
+    <link rel="stylesheet" href="/css/connexion.css" />
+</head>
+
+<body>
+    <main>
+        <div class="div_connexion">
+            <h2>Connexion</h2>
+            <div class="form_group">
+                <label for="username">Nom d'utilisateur</label>
+                <input type="text" id="username" name="username" required />
+            </div>
+            <div class="form_group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" name="password" required />
+            </div>
+            <button type="submit" class="btn_connexion" onclick="login()">
+                Se connecter
+            </button>
+            <div class="message">
+                <p id="message_p"></p>
+            </div>
+        </div>
+    </main>
+</body>
+<script>
+    history.pushState(null, "", "/login");
+    async function login(type = 'manual') {
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        // if (!token || (!username || !password)) return;
+
+        try {
+            const response = await fetch("/login_api", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            const data = await response.text();
+            if (response.ok) {
+
+                document.getElementById("message_p").style.color = "green";
+                document.getElementById("message_p").innerHTML = "Connexion réussie";
+
+
+                // data contient le code HTML de la page d'accueil
+                setTimeout(() => {
+                    document.open();
+                    document.write(data);
+                    document.close();
+                }, 500);
+
+
+            } else {
+                console.error("Erreur de connexion :", data);
+                data_ = JSON.parse(data);
+                console.error(data_.message);
+                if (type == "manual") {
+                    document.getElementById("message_p").innerHTML = data_.message;
+                }
+
+            }
+        } catch (error) {
+            console.error("Erreur de connexion :", error);
+        }
+    }
+
+    login("auto");
+
+    // Fonction pour charger une nouvelle page
+    function loadPage(url) {
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    document.open();
+                    document.write(html);
+                    document.close();
+                })
+                .catch(error => console.error('Erreur de chargement de la page:', error));
+        }
+
+        // Ajouter un nouvel état à l'historique
+    function navigateTo(url) {
+        history.pushState(null, '', url);
+        loadPage(url);
+    }
+
+    // Écouter l'événement popstate
+    window.addEventListener('popstate', (event) => {
+        loadPage(location.pathname);
+    });
+</script>
+
+</html>

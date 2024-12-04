@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <link rel="stylesheet" href="./css/editor.css">
+    <link rel="stylesheet" href="./css/header.css">
+
+    <!-- font -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Courgette&family=Itim&family=Nerko+One&family=Oregano:ital@0;1&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+
+</head>
+
+<body>
+    <header>
+        <div class="div_header_main">
+
+            <button class="home_btn" onclick="window.location.href = `/`;">home</button>
+            <button class="profil_btn" onclick="window.location.href = `/profil`;">profil</button>
+        </div>
+
+    </header>
+    <div class="div_historique">
+        <button class="historique_tbn"
+            onclick="window.location.href = `/historique?id=${new URLSearchParams(window.location.search).get('id')}`">HISTORIQUE</button>
+    </div>
+    <main>
+        <section class="editor">
+            <div class="titre_editor_div">
+                <input type="text" class="titre_fiche" placeholder="Titre de la fiche">
+                <div class="input_save_groupe">
+                    <select name="groupe" id="groupe_selection" class="groupe_selection">
+                        <option value="-2" disabled selected>Veuillez choisir</option>
+                    </select>
+                    <button class="btn_enregistrer" onclick="save_fiche()">Enregistrer</button>
+
+                </div>
+
+            </div>
+
+            <div class="div_editor_section">
+
+            </div>
+            <div class="div_ajout_section">
+                <button class="btn_ajout_texte" onclick="createEditorSection()">Ajouter un texte</button>
+                <button class="btn_ajout_titre" onclick="createEditorSectionTitre()">Ajouter un titre</button>
+                <button class="btn_ajout_definition" onclick="createEditorSectionDef()">Ajouter une définition</button>
+            </div>
+        </section>
+
+        <section class="preview">
+            <div class="preview_main_parent">
+                <div class="content">
+                    <h1 id="titre_viewer"></h1>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+<script src="./js/texte_btn_action.js"></script>
+
+<script>
+    let liste_color_pastel = ['#99dcf5', '#c6d47e', '#f2dc3d', '#bdb0a9', '#fbb990', '#ffffff', '#000'];
+    let color_global = 0;
+
+
+    let fiche = {
+        titre: "",
+        groupe: "none",
+        contenu: [
+        ],
+        date_creation: new Date().toISOString()
+    };
+
+    let color_base = '#ffea29';
+
+    function saveToLocalStorage() {
+        localStorage.setItem('fiche', JSON.stringify(fiche));
+    }
+
+    document.querySelector('.titre_fiche').addEventListener('input', function () {
+        fiche.titre = document.querySelector('.titre_fiche').value;
+        saveToLocalStorage();
+        document.querySelector('#titre_viewer').textContent = fiche.titre;
+    });
+
+    function createEditorSection(element = "", content = "", id = "", color = "", nom = "") {
+
+        if (!id) {
+            id = String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).replace(/[^a-z0-9]+/g, '').substring(2, 5) + Math.floor(1000 + Math.random() * 9000);
+        }
+        //verifier si le nom est deja pris
+        if (fiche.contenu.length > 0) {
+            while (fiche.contenu.find(element => element.id === id)) {
+                id = String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).replace(/[^a-z0-9]+/g, '').substring(2, 5) + Math.floor(1000 + Math.random() * 9000);
+            }
+        }
+
+        if (nom == "") {
+            if (element != "") {
+                let id_before = element.id;
+                let index = fiche.contenu.findIndex(element => element.id === id_before);
+                fiche.contenu.splice(index, 0, {
+                    id: id,
+                    type: "texte",
+                    color: 0,
+                    valeur: ""
+                });
+            } else {
+                fiche.contenu.push({
+                    id: id,
+                    type: "texte",
+                    color: 0,
+                    valeur: ""
+                });
+            }
+        } else {
+            id = nom;
+        }
+
+
+        const editorSection = document.createElement('div');
+        editorSection.className = 'editor_div_section';
+        editorSection.id = id;
+
+        const divPanel = document.createElement('div');
+        divPanel.className = 'div_panel';
+
+        const div_add_btn = document.createElement('div');
+        div_add_btn.className = 'div_add_btn';
+
+        const btn_ajout_texte_small = document.createElement('button');
+        btn_ajout_texte_small.className = 'btn_ajout_texte_small';
+        btn_ajout_texte_small.textContent = 'Ajouter un texte';
+        btn_ajout_texte_small.onclick = function () {
+            createEditorSection(editorSection);
+        };
+
+        const btn_ajout_titre_small = document.createElement('button');
+        btn_ajout_titre_small.className = 'btn_ajout_titre_small';
+        btn_ajout_titre_small.textContent = 'Ajouter un titre';
+        btn_ajout_titre_small.onclick = function () {
+            createEditorSectionTitre(editorSection);
+        };
+
+        const btn_ajout_definition_small = document.createElement('button');
+        btn_ajout_definition_small.className = 'btn_ajout_definition_small';
+        btn_ajout_definition_small.textContent = 'Ajouter une définition';
+        btn_ajout_definition_small.onclick = function () {
+            createEditorSectionDef(editorSection);
+        };
+
+        div_add_btn.appendChild(btn_ajout_texte_small);
+        div_add_btn.appendChild(btn_ajout_titre_small);
+        div_add_btn.appendChild(btn_ajout_definition_small);
+
+        div_add_btn.addEventListener('mouseover', function () {
+            let children = div_add_btn.children;
+            for (let i = 0; i < children.length; i++) {
+                children[i].style.opacity = '1';
+            }
+        });
+        div_add_btn.addEventListener('mouseout', function () {
+
+            if (document.addEventListener('mousemove', function (e) {
+                if (e.target !== div_add_btn && e.target !== btn_ajout_texte_small && e.target !== btn_ajout_titre_small && e.target !== btn_ajout_definition_small) {
+                    let children = div_add_btn.children;
+                    for (let i = 0; i < children.length; i++) {
+                        children[i].style.opacity = '0';
+                    }
+                }
+            }));
+
+        });
+
+        const sup = document.createElement('div');
+        sup.className = 'supprimer_section';
+        sup.textContent = 'X';
+
+        divPanel.appendChild(sup);
+
+        const divTexteModifPanel = document.createElement('div');
+        divTexteModifPanel.className = 'div_texte_modif_panel';
+
+        const buttons = [
+            { text: "Gras", onclick: "bold()" },
+            { text: "Italique", onclick: "italic()" },
+            { text: "Souligné", onclick: "underline()" },
+            { separator: true },
+            { text: "Liste à puces", onclick: "insertUnorderedList()" },
+            { text: "Liste numérotée", onclick: "insertOrderedList()" },
+            { separator: true },
+            { text: "Gauche", onclick: "justifyLeft()" },
+            { text: "Centre", onclick: "justifyCenter()" },
+            { text: "Droite", onclick: "justifyRight()" },
+            { separator: true },
+            { text: "Surligné", onclick: "surligne(liste_color_pastel[color_global])" },
+            { colorPicker: true }
+        ];
+
+
+        for (let i = 0; i < buttons.length; i++) {
+
+            if (buttons[i].separator) {
+                const separator = document.createElement('div');
+                separator.className = 'separateur_panel';
+                divTexteModifPanel.appendChild(separator);
+                continue;
+            }
+
+            if (buttons[i].colorPicker) {
+                const color_changer = document.createElement('div');
+                color_changer.className = 'color_picker';
+                color_changer.id = 'color';
+                color_changer.name = 'color';
+
+                color_changer.style.backgroundColor = liste_color_pastel[color_global];
+
+                color_changer.onclick = function () {
+                    color_global++;
+                    if (color_global + 1 >= liste_color_pastel.length) {
+                        color_global = 0;
+                    }
+                    color_changer.style.backgroundColor = liste_color_pastel[color_global];
+
+                };
+                divTexteModifPanel.appendChild(color_changer);
+                continue;
+            }
+
+            const button = document.createElement('button');
+            button.className = 'btn_texte';
+            button.textContent = buttons[i].text;
+            button.setAttribute("onclick", buttons[i].onclick);
+            divTexteModifPanel.appendChild(button);
+
+        }
+
+        const divPanelEnd = document.createElement('div');
+        divPanelEnd.className = 'div_panel_end';
+
+        const editorDivEditable = document.createElement('div');
+        editorDivEditable.className = 'editor_div_editable';
+        editorDivEditable.contentEditable = 'true';
+        if (content != "") {
+            editorDivEditable.innerHTML = content;
+        }
+
+        divPanel.appendChild(divTexteModifPanel);
+        divPanel.appendChild(divPanelEnd);
+        editorSection.appendChild(div_add_btn);
+        editorSection.appendChild(divPanel);
+        editorSection.appendChild(editorDivEditable);
+
+        const preview = document.createElement('div');
+        preview.className = 'preview_txt';
+        preview.innerHTML = editorDivEditable.innerHTML;
+        preview.id = id;
+
+        if (element != "") {
+            elem = document.querySelector(`.preview #${element.id}`);
+            document.querySelector('.preview .content').insertBefore(preview, elem);
+        } else {
+            document.querySelector('.preview .content').appendChild(preview);
+        }
+
+        editorDivEditable.addEventListener("keydown", function (event) {
+            if (event.key === "Tab") {
+                event.preventDefault(); // Empêche le comportement par défaut (changement d'élément)
+
+                // Crée un espace insécable
+                const space = document.createTextNode("\t");
+                const range = document.getSelection().getRangeAt(0);
+
+                // Insère l'espace à la position actuelle du curseur
+                range.deleteContents(); // Supprime tout ce qui est sélectionné (si nécessaire)
+                range.insertNode(space);
+
+                // Déplace le curseur après l'espace inséré
+                range.setStartAfter(space);
+                range.collapse(true);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Met à jour le contenu de la fiche
+                preview.innerHTML = editorDivEditable.innerHTML;
+                const element = fiche.contenu.find(element => element.id === id);
+                element.valeur = editorDivEditable.innerHTML;
+                localStorage.setItem('fiche', JSON.stringify(fiche));
+
+            }
+        });
+        editorDivEditable.addEventListener('input', function () {
+            preview.innerHTML = editorDivEditable.innerHTML;
+            const element = fiche.contenu.find(element => element.id === id);
+            element.valeur = editorDivEditable.innerHTML;
+            localStorage.setItem('fiche', JSON.stringify(fiche));
+        });
+
+        sup.onclick = function () {
+            editorSection.style.animation = 'hide_section 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.22)';
+            setTimeout(() => {
+                editorSection.remove();
+                //remove the data from the fiche
+                const index = fiche.contenu.findIndex(element => element.id === id);
+                fiche.contenu.splice(index, 1);
+                localStorage.setItem('fiche', JSON.stringify(fiche));
+                preview.remove();
+                set_def_title();
+            }, 450);
+        };
+
+        if (element != "") {
+            // insert before
+            document.getElementsByClassName("div_editor_section")[0].insertBefore(editorSection, element);
+
+            return;
+        }
+        document.getElementsByClassName("div_editor_section")[0].appendChild(editorSection);
+
+        element = fiche.contenu.find(element => element.id === id);
+        element.valeur = editorDivEditable.innerHTML;
+        localStorage.setItem('fiche', JSON.stringify(fiche));
+        return;
+    }
+    function createEditorSectionTitre(element = "", content = "", id = "", color = "", nom = "", titre_type = "h3", underline = "") {
+
+        if (!id) {
+            id = String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).replace(/[^a-z0-9]+/g, '').substring(2, 5) + Math.floor(1000 + Math.random() * 9000);
+        }
+        //verifier si le nom est deja pris
+        if (fiche.contenu.length > 0) {
+            while (fiche.contenu.find(element => element.id === id)) {
+                id = String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).replace(/[^a-z0-9]+/g, '').substring(2, 5) + Math.floor(1000 + Math.random() * 9000);
+            }
+        }
+
+        if (nom == "") {
+            if (element != "") {
+                let id_before = element.id;
+                let index = fiche.contenu.findIndex(element => element.id === id_before);
+                fiche.contenu.splice(index, 0, {
+                    id: id,
+                    type: "titre",
+                    color: 0,
+                    titre_type: "h3",
+                    underline: "",
+                    valeur: ""
+                });
+            } else {
+                fiche.contenu.push({
+                    id: id,
+                    type: "titre",
+                    color: 0,
+                    titre_type: "h3",
+                    underline: "",
+                    valeur: ""
+                });
+            }
+        } else {
+            id = nom;
+        }
+
+
+        const editorSection = document.createElement('div');
+        editorSection.className = 'editor_div_section';
+        editorSection.id = id;
+
+        const divPanel = document.createElement('div');
+        divPanel.className = 'div_panel';
+
+        const div_add_btn = document.createElement('div');
+        div_add_btn.className = 'div_add_btn';
+
+        const btn_ajout_texte_small = document.createElement('button');
+        btn_ajout_texte_small.className = 'btn_ajout_texte_small';
+        btn_ajout_texte_small.textContent = 'Ajouter un texte';
+        btn_ajout_texte_small.onclick = function () {
+            createEditorSection(editorSection);
+        };
+
+        const btn_ajout_titre_small = document.createElement('button');
+        btn_ajout_titre_small.className = 'btn_ajout_titre_small';
+        btn_ajout_titre_small.textContent = 'Ajouter un titre';
+        btn_ajout_titre_small.onclick = function () {
+            createEditorSectionTitre(editorSection);
+        };
+
+        const btn_ajout_definition_small = document.createElement('button');
+        btn_ajout_definition_small.className = 'btn_ajout_definition_small';
+        btn_ajout_definition_small.textContent = 'Ajouter une définition';
+        btn_ajout_definition_small.onclick = function () {
+            createEditorSectionDef(editorSection);
+        };
+
+        div_add_btn.appendChild(btn_ajout_texte_small);
+        div_add_btn.appendChild(btn_ajout_titre_small);
+        div_add_btn.appendChild(btn_ajout_definition_small);
+
+        div_add_btn.addEventListener('mouseover', function () {
+            let children = div_add_btn.children;
+            for (let i = 0; i < children.length; i++) {
+                children[i].style.opacity = '1';
+            }
+        });
+        div_add_btn.addEventListener('mouseout', function () {
+
+            if (document.addEventListener('mousemove', function (e) {
+                if (e.target !== div_add_btn && e.target !== btn_ajout_texte_small && e.target !== btn_ajout_titre_small && e.target !== btn_ajout_definition_small) {
+                    let children = div_add_btn.children;
+                    for (let i = 0; i < children.length; i++) {
+                        children[i].style.opacity = '0';
+                    }
+                }
+            }));
+
+        });
+
+        const sup = document.createElement('div');
+        sup.className = 'supprimer_section';
+        sup.textContent = 'X';
+
+        divPanel.appendChild(sup);
+
+        const editorDivEditable = document.createElement('div');
+        editorDivEditable.className = 'editor_div_editable';
+        editorDivEditable.contentEditable = 'true';
+        if (content != "") {
+            editorDivEditable.innerHTML = content;
+        }
+
+        const preview = document.createElement('div');
+        preview.className = 'preview_titre';
+        preview.innerHTML = editorDivEditable.innerHTML;
+        preview.id = id;
+
+        if (color) {
+            preview.style.color = liste_color_pastel[color];
+        }
+
+        if (underline != "") {
+            preview.style.textDecoration = underline;
+            editorDivEditable.style.textDecoration = underline;
+
+        }
+
+        if (element != "") {
+            elem = document.querySelector(`.preview #${element.id}`);
+            document.querySelector('.preview .content').insertBefore(preview, elem);
+        } else {
+            document.querySelector('.preview .content').appendChild(preview);
+        }
+
+        const divTexteModifPanel = document.createElement('div');
+        divTexteModifPanel.className = 'div_texte_modif_panel';
+
+        const buttons = [
+            { titre: true },
+            { separator: true },
+            { text: "Souligné", onclick: "underline()" },
+            { separator: true },
+            { text: "Gauche", onclick: "justifyLeft()" },
+            { text: "Centre", onclick: "justifyCenter()" },
+            { separator: true },
+            { colorPicker: true }
+        ];
+
+        const list_titre_option = [
+            { text: "Titre 1", value: "h1" },
+            { text: "Titre 2", value: "h2" },
+            { text: "Titre 3", value: "h3" },
+            { text: "Titre 4", value: "h4" },
+            { text: "Titre 5", value: "h5" },
+            { text: "Titre 6", value: "h6" }
+        ];
+
+
+        for (let i = 0; i < buttons.length; i++) {
+
+            if (buttons[i].separator) {
+                const separator = document.createElement('div');
+                separator.className = 'separateur_panel';
+                divTexteModifPanel.appendChild(separator);
+                continue;
+            }
+
+            if (buttons[i].colorPicker) {
+                const color_changer = document.createElement('div');
+                color_changer.className = 'color_picker';
+                color_changer.id = 'color';
+                color_changer.name = 'color';
+
+                color_changer.style.backgroundColor = liste_color_pastel[color_global];
+
+                color_changer.onclick = function () {
+                    color_global++;
+                    if (color_global + 1 > liste_color_pastel.length) {
+                        color_global = 0;
+                    }
+                    color_changer.style.backgroundColor = liste_color_pastel[color_global];
+                    fiche.contenu.find(element => element.id === id).color = color_global;
+                    localStorage.setItem('fiche', JSON.stringify(fiche));
+                    preview.style.color = liste_color_pastel[color_global];
+
+
+                };
+                if (color) {
+                    color_changer.style.backgroundColor = liste_color_pastel[color];
+                    color_global = color;
+                }
+                divTexteModifPanel.appendChild(color_changer);
+                continue;
+            }
+
+            if (buttons[i].titre) {
+                const titre_select = document.createElement('select');
+                titre_select.className = 'titre_select';
+                titre_select.name = 'titre_select';
+
+                list_titre_option.forEach(option => {
+                    const titre_option = document.createElement('option');
+                    titre_option.value = option.value;
+                    titre_option.textContent = option.text;
+                    titre_select.appendChild(titre_option);
+
+                    titre_select.onchange = function () {
+                        preview.setAttribute('titre_type', titre_select.value);
+                        fiche.contenu.find(element => element.id === id).titre_type = titre_select.value;
+                        localStorage.setItem('fiche', JSON.stringify(fiche));
+
+                    };
+
+                });
+                if (titre_type) {
+                    titre_select.value = titre_type;
+                    preview.setAttribute('titre_type', titre_type);
+                }
+
+                divTexteModifPanel.appendChild(titre_select);
+                continue;
+            }
+
+            const button = document.createElement('button');
+            button.className = 'btn_texte';
+            button.textContent = buttons[i].text;
+            if (buttons[i].text == "Souligné") {
+                button.addEventListener('click', function () {
+                    if (preview.style.textDecoration == "underline") {
+                        preview.style.textDecoration = "";
+                        editorDivEditable.style.textDecoration = "";
+                    } else {
+                        preview.style.textDecoration = "underline";
+                        editorDivEditable.style.textDecoration = "underline";
+                    }
+                    const element = fiche.contenu.find(element => element.id === id);
+                    element.underline = preview.style.textDecoration;
+                    localStorage.setItem('fiche', JSON.stringify(fiche));
+
+                });
+            } else {
+                button.setAttribute("onclick", buttons[i].onclick);
+            }
+
+            divTexteModifPanel.appendChild(button);
+
+        }
+
+        const divPanelEnd = document.createElement('div');
+        divPanelEnd.className = 'div_panel_end';
+
+
+
+        divPanel.appendChild(divTexteModifPanel);
+        divPanel.appendChild(divPanelEnd);
+        editorSection.appendChild(div_add_btn);
+        editorSection.appendChild(divPanel);
+        editorSection.appendChild(editorDivEditable);
+
+
+
+        editorDivEditable.addEventListener('input', function () {
+            preview.innerHTML = editorDivEditable.innerHTML;
+            const element = fiche.contenu.find(element => element.id === id);
+            element.valeur = editorDivEditable.innerHTML;
+            localStorage.setItem('fiche', JSON.stringify(fiche));
+        });
+
+        sup.onclick = function () {
+            editorSection.style.animation = 'hide_section 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.22)';
+            setTimeout(() => {
+                editorSection.remove();
+                //remove the data from the fiche
+                const index = fiche.contenu.findIndex(element => element.id === id);
+                fiche.contenu.splice(index, 1);
+                localStorage.setItem('fiche', JSON.stringify(fiche));
+                preview.remove();
+                set_def_title();
+            }, 450);
+        };
+
+        if (element != "") {
+            // insert before
+            document.getElementsByClassName("div_editor_section")[0].insertBefore(editorSection, element);
+
+            return;
+        }
+
+        document.getElementsByClassName("div_editor_section")[0].appendChild(editorSection);
+
+        element = fiche.contenu.find(element => element.id === id);
+        element.valeur = editorDivEditable.innerHTML;
+        localStorage.setItem('fiche', JSON.stringify(fiche));
+        return;
+    }
+    function createEditorSectionDef(element = "", mot = "", content = "", id = "", color = 0, nom = "") {
+
+        if (!id) {
+            id = String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).replace(/[^a-z0-9]+/g, '').substring(2, 5) + Math.floor(1000 + Math.random() * 9000);
+        }
+        //verifier si le nom est deja pris
+        if (fiche.contenu.length > 0) {
+            while (fiche.contenu.find(element => element.id === id)) {
+                id = String.fromCharCode(97 + Math.floor(Math.random() * 26)) + Math.random().toString(36).replace(/[^a-z0-9]+/g, '').substring(2, 5) + Math.floor(1000 + Math.random() * 9000);
+            }
+        }
+
+        if (nom == "") {
+            if (element != "") {
+                let id_before = element.id;
+                let index = fiche.contenu.findIndex(element => element.id === id_before);
+                fiche.contenu.splice(index, 0, {
+                    id: id,
+                    type: "definition",
+                    color: color,
+                    mot: "",
+                    valeur: ""
+                });
+
+            } else {
+                fiche.contenu.push({
+                    id: id,
+                    type: "definition",
+                    color: color,
+                    mot: "",
+                    valeur: ""
+                });
+            }
+        } else {
+            id = nom;
+        }
+
+
+
+        const editorSection = document.createElement('div');
+        editorSection.className = 'editor_div_section';
+        editorSection.id = id;
+
+        const divPanel = document.createElement('div');
+        divPanel.className = 'div_panel';
+
+        const div_add_btn = document.createElement('div');
+        div_add_btn.className = 'div_add_btn';
+
+        const btn_ajout_texte_small = document.createElement('button');
+        btn_ajout_texte_small.className = 'btn_ajout_texte_small';
+        btn_ajout_texte_small.textContent = 'Ajouter un texte';
+        btn_ajout_texte_small.onclick = function () {
+            createEditorSection(editorSection);
+        };
+
+        const btn_ajout_titre_small = document.createElement('button');
+        btn_ajout_titre_small.className = 'btn_ajout_titre_small';
+        btn_ajout_titre_small.textContent = 'Ajouter un titre';
+        btn_ajout_titre_small.onclick = function () {
+            createEditorSectionTitre(editorSection);
+        };
+
+        const btn_ajout_definition_small = document.createElement('button');
+        btn_ajout_definition_small.className = 'btn_ajout_definition_small';
+        btn_ajout_definition_small.textContent = 'Ajouter une définition';
+        btn_ajout_definition_small.onclick = function () {
+            createEditorSectionDef(editorSection);
+        };
+
+        div_add_btn.appendChild(btn_ajout_texte_small);
+        div_add_btn.appendChild(btn_ajout_titre_small);
+        div_add_btn.appendChild(btn_ajout_definition_small);
+
+        div_add_btn.addEventListener('mouseover', function () {
+            let children = div_add_btn.children;
+            for (let i = 0; i < children.length; i++) {
+                children[i].style.opacity = '1';
+            }
+        });
+        div_add_btn.addEventListener('mouseout', function () {
+
+            if (document.addEventListener('mousemove', function (e) {
+                if (e.target !== div_add_btn && e.target !== btn_ajout_texte_small && e.target !== btn_ajout_titre_small && e.target !== btn_ajout_definition_small) {
+                    let children = div_add_btn.children;
+                    for (let i = 0; i < children.length; i++) {
+                        children[i].style.opacity = '0';
+                    }
+                }
+            }));
+
+        });
+
+        const sup = document.createElement('div');
+        sup.className = 'supprimer_section';
+        sup.textContent = 'X';
+
+        divPanel.appendChild(sup);
+
+        const divTexteModifPanel = document.createElement('div');
+        divTexteModifPanel.className = 'div_texte_modif_panel';
+
+        const buttons = [
+            { text: "Gras", onclick: "bold()" },
+            { text: "Italique", onclick: "italic()" },
+            { text: "Souligné", onclick: "underline()" },
+            { separator: true },
+            { text: "Liste à puces", onclick: "insertUnorderedList()" },
+            { text: "Liste numérotée", onclick: "insertOrderedList()" },
+            { separator: true },
+            { text: "Gauche", onclick: "justifyLeft()" },
+            { text: "Centre", onclick: "justifyCenter()" },
+            { text: "Droite", onclick: "justifyRight()" },
+            { separator: true },
+            { text: "Surligné", onclick: "surligne(liste_color_pastel[color_global])" },
+            { colorPicker: true }
+        ];
+
+        for (let i = 0; i < buttons.length; i++) {
+            if (buttons[i].separator) {
+                const separator = document.createElement('div');
+                separator.className = 'separateur_panel';
+                divTexteModifPanel.appendChild(separator);
+                continue;
+            }
+
+            if (buttons[i].colorPicker) {
+                const color_changer = document.createElement('div');
+                color_changer.className = 'color_picker';
+                color_changer.id = 'color';
+                color_changer.name = 'color';
+
+                color_changer.style.backgroundColor = liste_color_pastel[color_global];
+
+                color_changer.onclick = function () {
+                    color_global++;
+                    if (color_global + 1 >= liste_color_pastel.length) {
+                        color_global = 0;
+                    }
+                    color_changer.style.backgroundColor = liste_color_pastel[color_global];
+
+                };
+                divTexteModifPanel.appendChild(color_changer);
+                continue;
+            }
+
+            const button = document.createElement('button');
+            button.className = 'btn_texte';
+            button.textContent = buttons[i].text;
+            button.setAttribute("onclick", buttons[i].onclick);
+            divTexteModifPanel.appendChild(button);
+
+        }
+
+        const divPanelEnd = document.createElement('div');
+        divPanelEnd.className = 'div_panel_end';
+
+
+        const editorDivEditablePrent = document.createElement('div');
+        editorDivEditablePrent.className = 'div_editor_parent';
+
+        const editorDivEditable_content = document.createElement('div');
+        editorDivEditable_content.className = 'editor_div_editable';
+        editorDivEditable_content.id = 'def';
+        editorDivEditable_content.contentEditable = 'true';
+
+        if (content != "") {
+            editorDivEditable_content.innerHTML = content;
+        }
+
+        const editorDivEditable = document.createElement('div');
+        editorDivEditable.className = 'editor_div_editable';
+        editorDivEditable.id = 'def_mot';
+        editorDivEditable.contentEditable = 'true';
+
+        if (mot != "") {
+            editorDivEditable.innerHTML = mot;
+        }
+
+        editorDivEditablePrent.appendChild(editorDivEditable);
+        editorDivEditablePrent.appendChild(editorDivEditable_content);
+
+        divPanel.appendChild(divTexteModifPanel);
+        divPanel.appendChild(divPanelEnd);
+        editorSection.appendChild(div_add_btn);
+        editorSection.appendChild(divPanel);
+        editorSection.appendChild(editorDivEditablePrent);
+
+
+        const preview = document.createElement('div');
+        preview.className = 'preview_def_main';
+        preview.id = id;
+
+        const preview_mot = document.createElement('div');
+        preview_mot.className = 'preview_def_mot';
+        preview_mot.innerHTML = editorDivEditable.innerHTML;
+
+        const preview_def = document.createElement('div');
+        preview_def.className = 'preview_def';
+        preview_def.innerHTML = editorDivEditable_content.innerHTML;
+
+        preview.appendChild(preview_mot);
+        preview.appendChild(preview_def);
+
+        if (element != "") {
+            elem = document.querySelector(`.preview #${element.id}`);
+            document.querySelector('.preview .content').insertBefore(preview, elem);
+        } else {
+            document.querySelector('.preview .content').appendChild(preview);
+        }
+
+        editorDivEditable_content.addEventListener("keydown", function (event) {
+            if (event.key === "Tab") {
+                event.preventDefault(); // Empêche le comportement par défaut (changement d'élément)
+
+                // Crée un espace insécable
+                const space = document.createTextNode("\t");
+                const range = document.getSelection().getRangeAt(0);
+
+                // Insère l'espace à la position actuelle du curseur
+                range.deleteContents(); // Supprime tout ce qui est sélectionné (si nécessaire)
+                range.insertNode(space);
+
+                // Déplace le curseur après l'espace inséré
+                range.setStartAfter(space);
+                range.collapse(true);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Met à jour le contenu de la fiche
+                preview_def.innerHTML = editorDivEditable_content.innerHTML;
+                const element = fiche.contenu.find(element => element.id === id)
+                element.valeur = editorDivEditable_content.innerHTML;
+                localStorage.setItem('fiche', JSON.stringify(fiche));
+                set_def_title();
+
+            }
+        });
+        editorDivEditable.addEventListener('input', function () {
+            preview_mot.innerHTML = editorDivEditable.innerHTML;
+            const element = fiche.contenu.find(element => element.id === id)
+            element.mot = editorDivEditable.innerHTML;
+            localStorage.setItem('fiche', JSON.stringify(fiche));
+            set_def_title();
+        });
+
+        editorDivEditable_content.addEventListener('input', function () {
+            preview_def.innerHTML = editorDivEditable_content.innerHTML;
+            const element = fiche.contenu.find(element => element.id === id)
+            element.valeur = editorDivEditable_content.innerHTML;
+            localStorage.setItem('fiche', JSON.stringify(fiche));
+            set_def_title();
+        });
+
+        sup.onclick = function () {
+            editorSection.style.animation = 'hide_section 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.22)';
+            setTimeout(() => {
+                editorSection.remove();
+                const index = fiche.contenu.findIndex(element => element.id === id);
+                fiche.contenu.splice(index, 1);
+                localStorage.setItem('fiche', JSON.stringify(fiche));
+                preview.remove();
+                set_def_title();
+            }, 450);
+        };
+
+
+        if (element != "") {
+            // insert before
+            document.getElementsByClassName("div_editor_section")[0].insertBefore(editorSection, element);
+
+            return;
+        }
+        document.getElementsByClassName("div_editor_section")[0].appendChild(editorSection);
+
+        element = fiche.contenu.find(element => element.id === id)
+        element.mot = editorDivEditable.innerHTML;
+        localStorage.setItem('fiche', JSON.stringify(fiche));
+
+        element = fiche.contenu.find(element => element.id === id)
+        element.valeur = editorDivEditable_content.innerHTML;
+        localStorage.setItem('fiche', JSON.stringify(fiche));
+
+        return;
+    }
+
+    function load_local_storage(auto = "") {
+        const ficheJSONFromStorage = localStorage.getItem('fiche');
+        const ficheFromStorage = JSON.parse(ficheJSONFromStorage);
+        try {
+            let titre = ficheFromStorage.titre;
+            document.querySelector('.titre_fiche').value = titre;
+            document.querySelector('#titre_viewer').textContent = titre;
+            let fiche = ficheFromStorage.contenu;
+            fiche.forEach(element => {
+                let nom = element.id;
+                if (element.type == "texte") {
+                    createEditorSection("", element.valeur, element.id, element.color, nom);
+                } else if (element.type == "definition") {
+                    createEditorSectionDef("", element.mot, element.valeur, element.id, element.color, nom);
+                } else if (element.type == "titre") {
+                    createEditorSectionTitre("", element.valeur, element.id, element.color, nom, element.titre_type, element.underline);
+                }
+            });
+        } catch (error) {
+            return;
+        }
+
+    }
+
+    function add_definition_title(elem) {
+        if (elem.querySelector(".div_def_fiche_title")) {
+            return;
+        }
+        let div = document.createElement("div");
+        div.className = "div_def_fiche_title";
+        div.id = "divDefFicheTitle_" + elem.id;
+        div.textContent = "Définitions";
+
+        if (elem.getAttribute('color') == undefined) {
+            elem.setAttribute('color', -1);
+        }
+        div.style.color = liste_color_pastel[elem.getAttribute('color')];
+
+        div.addEventListener('click', function () {
+            let bck_color = elem.getAttribute('color');
+            if (parseInt(bck_color) + 1 >= liste_color_pastel.length) {
+                elem.setAttribute('color', 0);
+                bck_color = -1;
+            }
+            let next_color = liste_color_pastel[parseInt(bck_color) + 1];
+            div.style.color = next_color;
+
+            elem.setAttribute('color', parseInt(bck_color) + 1);
+
+            //change the json 
+            const element = fiche.contenu.find(element => element.id === elem.id);
+            element.color = parseInt(bck_color) + 1;
+            localStorage.setItem('fiche', JSON.stringify(fiche));
+        });
+        elem.appendChild(div);
+    }
+
+    function remove_definition_title(elem) {
+        let div = elem.querySelector(".div_def_fiche_title");
+        if (div) {
+            div.remove();
+        }
+    }
+
+    function set_def_title() {
+        let fiche = localStorage.getItem('fiche');
+        fiche = JSON.parse(fiche);
+        let contenu = fiche.contenu;
+
+        let list_def = [];
+
+
+        contenu.forEach(elem => {
+            if (elem.type == "definition") {
+                list_def.push(elem);
+                let id = list_def[0].id;
+                let element = document.querySelector(`.preview #${id}`);
+                element.classList.remove('first_def');
+                element.classList.remove('last_def');
+
+                remove_definition_title(element);
+
+
+                let last_id = list_def[list_def.length - 1].id;
+                let last_element = document.querySelector(`.preview #${last_id}`);
+                last_element.classList.remove('last_def');
+                last_element.classList.remove('first_def');
+
+                remove_definition_title(last_element);
+
+            } else if (list_def.length > 0) {
+                let id = list_def[0].id;
+                let element = document.querySelector(`.preview #${id}`);
+                element.classList.add('first_def');
+                let color = list_def[0].color;
+                element.setAttribute('color', color);
+                add_definition_title(element);
+
+                let last_id = list_def[list_def.length - 1].id;
+                let last_element = document.querySelector(`.preview #${last_id}`);
+                last_element.classList.add('last_def');
+
+                list_def = [];
+
+            }
+
+
+        });
+        if (list_def.length > 0) {
+            let id = list_def[0].id;
+            let element = document.querySelector(`.preview #${id}`);
+            element.classList.add('first_def');
+            let color = list_def[0].color;
+            element.setAttribute('color', color);
+            add_definition_title(element);
+
+
+            let last_id = list_def[list_def.length - 1].id;
+            let last_element = document.querySelector(`.preview #${last_id}`);
+            last_element.classList.add('last_def');
+
+            list_def = [];
+
+        }
+    }
+
+    async function change_groupe() {
+        let groupe = document.getElementById('groupe_selection').value;
+        fiche.groupe = groupe;
+        localStorage.setItem('fiche', JSON.stringify(fiche));
+        const urlParams = new URLSearchParams(window.location.search);
+        const id_fiche = urlParams.get('id');
+
+        const response = await fetch("/ChangeGroupeByID", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },body: JSON.stringify({ id:id_fiche,groupe_id:groupe})
+        });
+        const data = await response.json();
+        save_fiche();
+    }
+
+    async function getAllGroupe() {
+        const response = await fetch("/GetAllGroupeByUser", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            if (data.data.length != 0) {
+                data.data.forEach(groupe => {
+                    console.log(groupe)
+                    let option = document.createElement('option');
+                    option.value = groupe.id_groupe;
+                    option.innerHTML=groupe.nom_groupe;
+                    document.querySelector("#groupe_selection").appendChild(option);
+                });
+            }
+            let option = document.createElement('option');
+            option.value = "-1";
+            option.innerHTML='ajouter';
+            document.querySelector("#groupe_selection").appendChild(option);
+        }
+
+        if (fiche.groupe !='none'){
+            document.querySelector("#groupe_selection").value = fiche.groupe;
+        }
+
+    }
+
+
+    async function addGroupe(nom) {
+        const response = await fetch("/create_groupe", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ nom: nom })
+        });
+        const data = await response.json();
+        console.log(data);
+        alert(`Groupe ${nom} créé !`)
+
+        setTimeout(() =>{
+            location.reload();
+        },300);
+        
+    }
+
+    document.querySelector("#groupe_selection").addEventListener("change", function() {
+        if (document.querySelector("#groupe_selection").value == "-1"){
+            const userInput = prompt("Quel est le nom du groupe :", "");
+            addGroupe(userInput);
+        }else{
+            change_groupe();
+        }
+    });
+
+    async function createFiche() {
+        let titre = "test";
+        if (titre.length == 0) {
+            titre = "Sans titre";
+        }
+        const response = await fetch("/create_fiche", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ title: titre })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            window.location.href = `/editor/?id=${data.id}`;
+
+        }
+    }
+
+    async function get_JSON_fiche() {
+        // get les param de l'url
+        const urlParams = new URLSearchParams(window.location.search);
+        const id_fiche = urlParams.get('id');
+        const response = await fetch(`/get_fiche?id=${id_fiche}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            fiche = data.fiche;
+            fiche_contenu = fiche.fiche_content_only;
+            fiche_contenu = fiche_contenu.JSON_Storage;
+            if (fiche_contenu == "") {
+                fiche_contenu = {
+                    titre: "",
+                    groupe: "none",
+                    contenu: [
+                    ],
+                    date_creation: new Date().toISOString()
+                };
+
+                fiche_contenu = JSON.stringify(fiche_contenu);
+            }
+            // convert string to json
+            localStorage.setItem('fiche', fiche_contenu);
+            fiche = JSON.parse(fiche_contenu);
+            load_local_storage(true);
+            set_def_title();
+            getAllGroupe()
+        }
+    }
+    get_JSON_fiche();
+    // save to base
+    async function save_fiche() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id_fiche = urlParams.get('id');
+        const response = await fetch(`/save_fiche`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ ficheId: id_fiche, innerHTML: '', JSON_Storage: localStorage.getItem('fiche'), commentaire: 'update' })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            console.log(data);
+        }
+    }
+
+    let IsChange = false;
+
+    // dès qu'il y a un changement dans le contenu de la fiche, on sauvegarde
+    window.addEventListener('input', function () {
+        IsChange = true;
+    });
+
+    // dès qu'il y a un clic sur un bouton, on sauvegarde
+    window.addEventListener('click', function () {
+        IsChange = true;
+    });
+
+    setInterval(() => {
+        if (IsChange) {
+            save_fiche();
+            IsChange = false;
+        }
+    }, 5000);
+
+</script>
+
+</html>
