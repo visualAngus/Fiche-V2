@@ -865,6 +865,7 @@
             set_def_title();
         });
 
+
         editorDivEditable_content.addEventListener('input', function () {
             preview_def.innerHTML = editorDivEditable_content.innerHTML;
             const element = fiche.contenu.find(element => element.id === id)
@@ -1042,7 +1043,7 @@
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
-            },body: JSON.stringify({ id:id_fiche,groupe_id:groupe})
+            }, body: JSON.stringify({ id: id_fiche, groupe_id: groupe })
         });
         const data = await response.json();
         save_fiche();
@@ -1062,17 +1063,17 @@
                     console.log(groupe)
                     let option = document.createElement('option');
                     option.value = groupe.id_groupe;
-                    option.innerHTML=groupe.nom_groupe;
+                    option.innerHTML = groupe.nom_groupe;
                     document.querySelector("#groupe_selection").appendChild(option);
                 });
             }
             let option = document.createElement('option');
             option.value = "-1";
-            option.innerHTML='ajouter';
+            option.innerHTML = 'ajouter';
             document.querySelector("#groupe_selection").appendChild(option);
         }
 
-        if (fiche.groupe !='none'){
+        if (fiche.groupe != 'none') {
             document.querySelector("#groupe_selection").value = fiche.groupe;
         }
 
@@ -1091,17 +1092,17 @@
         console.log(data);
         alert(`Groupe ${nom} créé !`)
 
-        setTimeout(() =>{
+        setTimeout(() => {
             location.reload();
-        },300);
-        
+        }, 300);
+
     }
 
-    document.querySelector("#groupe_selection").addEventListener("change", function() {
-        if (document.querySelector("#groupe_selection").value == "-1"){
+    document.querySelector("#groupe_selection").addEventListener("change", function () {
+        if (document.querySelector("#groupe_selection").value == "-1") {
             const userInput = prompt("Quel est le nom du groupe :", "");
             addGroupe(userInput);
-        }else{
+        } else {
             change_groupe();
         }
     });
@@ -1157,6 +1158,18 @@
             load_local_storage(true);
             set_def_title();
             getAllGroupe()
+
+
+
+            document.querySelector(".preview_main_parent").scrollTo({
+                top: document.querySelector(".preview_main_parent").scrollHeight,
+                behavior: "smooth"
+            });
+            document.querySelector(".editor").scrollTo({
+                top: document.querySelector(".preview_main_parent").scrollHeight,
+                behavior: "smooth"
+            });
+
         }
     }
     get_JSON_fiche();

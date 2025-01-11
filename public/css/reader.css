@@ -1,0 +1,16 @@
+main{
+    align-items: center;
+    justify-content: center;
+}
+
+
+@media (max-width: 600px) {
+    .preview{
+        min-width: 100px;
+        width: 100vw;
+    }
+    .preview_main_parent{
+        max-height: 90vh;
+        aspect-ratio:unset;
+    }
+}

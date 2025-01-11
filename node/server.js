@@ -23,13 +23,45 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 app.use(cookieParser());
 
-// connect to the database
-const connection_fiches = mysql.createConnection({
+
+const dbConfig = {
     host: 'localhost',
     user: 'root',
     password: '',
     database: 'fiche_v2'
-});
+};
+let connection_fiches;
+
+function connectToDatabase() {
+    connection_fiches = mysql.createConnection(dbConfig);
+
+    connection_fiches.connect(err => {
+        if (err) {
+            console.error('Erreur lors de la connexion à MySQL :', err);
+            setTimeout(connectToDatabase, 2000); // Retenter la connexion après un délai
+        } else {
+            console.log('Connecté à la base de données MySQL');
+        }
+    });
+
+    // Gérer les erreurs de connexion
+    connection_fiches.on('error', err => {
+        console.error('Erreur de connexion MySQL :', err);
+        if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+            console.log('Connexion perdue, tentative de reconnexion...');
+            connectToDatabase(); // Réinitialiser la connexion
+        } else if (err.code==='ECONNRESET'){
+            console.log('Serveur fermé');
+            setTimeout(connectToDatabase, 2000);
+        }
+        else {
+            throw err; // Lancer l'erreur pour des cas non récupérables
+        }
+    });
+}
+connectToDatabase();
+
+
 connection_fiches.connect(function (err) {
     if (err) {
         console.error('error connecting: ' + err.stack);
@@ -180,11 +212,9 @@ app.post('/create_fiche', async (req, res) => {
     }
 
     const { title } = req.body;
-    console.log(title)
     try {
         const tableName = `fiche_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
         const creatFicheResultat = await request_fiche('INSERT INTO fiches_meta (titre, table_name) VALUES (?, ?)',[title, tableName]);
-
         // Créer la table spécifique pour cette fiche
         await createFicheTable(tableName);
 
@@ -198,11 +228,11 @@ app.post('/create_fiche', async (req, res) => {
         await request_fiche(`INSERT INTO ${tableName} (inner_html, JSON_Storage, commentaire, iv_inner, authTag_inner, iv_local, authTag_local) VALUES (?, ?, ?, ?, ?, ?, ?)`,['', fiche, 'Version initiale', '', '', '', '']);
 
         // Créer la liaison utilisateur-fiche
-        await request_fiche('INSERT INTO user_fiches (user_id, fiche_id) VALUES (?, ?)',[userData.userID, creatFicheResultat.results.insertId]);
+        await request_fiche('INSERT INTO user_fiches (user_id, fiche_id) VALUES (?, ?)',[userData.userID, creatFicheResultat.insertId]);
 
         res.json({
             success: true,
-            ficheId: creatFicheResultat.results.insertId,
+            ficheId: creatFicheResultat.insertId,
             message: 'Fiche créée avec succès'
         });
 
@@ -367,6 +397,14 @@ app.get('/historique', async (req, res) => {
         return;
     }
     res.sendFile(path.join(__dirname, '../historique/index.html'));
+});
+app.get('/reader', async (req, res) => {
+    const userData = verificationAll(req);
+    if (!userData) {
+        res.status(401).send('Unauthorized');
+        return;
+    }
+    res.sendFile(path.join(__dirname, '../reader/index.html'));
 });
 app.post('/save_fiche', async (req, res) => {
     const userData = verificationAll(req);

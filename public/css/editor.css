@@ -425,9 +425,9 @@ div[contenteditable="true"] {
     padding: 5px;
 }
 
-[contenteditable="true"]:focus {
-    /* border: 1px solid var(--contrast-color); */
-}
+/* [contenteditable="true"]:focus {
+   border: 1px solid var(--contrast-color);
+} */
 
 .editor_div_editable{
     width: 100%;
@@ -682,4 +682,14 @@ div[contenteditable="true"] {
 }
 .div_historique button{
     background-color: transparent;
+}
+.preview_txt,.preview_def_main,.preview_titre{
+    cursor: pointer;
+
+    transition: all 0.2s ease-out;
+
+    border-radius: 5px;
+}
+.preview_txt:hover,.preview_def_main:hover,.preview_titre:hover{
+    background-color: var(--selection-color);
 }

@@ -50,8 +50,16 @@
         new_div.classList.add("parent_liste");
         new_div.id = id;
         new_div.addEventListener('click', function () {
-            window.location.href = `/editor?id=${new_div.id}`
+            if (navigator.userAgent.toLowerCase().includes('mobile')) {
+                setTimeout(() => {
+                    // window.location.href = `/editor?id=${new_div.id}`;
+                }, 100); // Petit délai pour améliorer la fluidité
+            } else {
+                window.location.href = `/editor?id=${new_div.id}`;
+            }
         });
+
+
 
         document.querySelector('.historique_div_all').appendChild(new_div);
 
@@ -133,72 +141,74 @@
     }
 
     function show_barre_fiche(parent) {
-    let main_div = document.querySelector(".div_main_barre");
+        let main_div = document.querySelector(".div_main_barre");
 
-    if (!main_div) {
-        main_div = document.createElement("div");
-        main_div.classList.add("div_main_barre");
+        if (!main_div) {
+            main_div = document.createElement("div");
+            main_div.classList.add("div_main_barre");
+            main_div.id = parent.id;
+
+            let div_btn_edit = document.createElement("div");
+            div_btn_edit.classList.add("div_btn_lire");
+
+            let text_btn = document.createElement("a");
+            text_btn.innerHTML = 'EDIT';
+
+            text_btn.addEventListener("click", function () {
+                window.location.href = `/editor?id=${main_div.id}`;
+            });
+
+            div_btn_edit.appendChild(text_btn);
+            main_div.appendChild(div_btn_edit);
+
+            let div_btn_lire = document.createElement("div");
+            div_btn_lire.classList.add("div_btn_lire");
+
+            text_btn = document.createElement("a");
+            text_btn.innerHTML = 'LIRE';
+            text_btn.addEventListener("click", function () {
+                window.location.href = `/reader?id=${main_div.id}`;
+            });
+            div_btn_lire.appendChild(text_btn);
+            main_div.appendChild(div_btn_lire);
+
+            let div_btn_supp = document.createElement("div");
+            div_btn_supp.classList.add("div_btn_supp");
+
+            text_btn = document.createElement("a");
+            text_btn.innerHTML = 'DELETE';
+            text_btn.addEventListener("click", function () {
+                let delete_bool = confirm('Voulez-vous supprimer cette fiche ?');
+                if (delete_bool) {
+                    deleteFiche(main_div.id);
+                }
+            });
+
+            div_btn_supp.appendChild(text_btn);
+            main_div.appendChild(div_btn_supp);
+
+            document.querySelector('.historique_div_all').appendChild(main_div); // Ajouter au conteneur parent
+        }
+
+        main_div.style.width = "0px";
+        // Positionner main_div au-dessus de parent
+        const parentRect = parent.getBoundingClientRect();
+        const containerRect = document.querySelector('.historique_div_all').getBoundingClientRect();
+        parent.classList.add("hovered");
+
+        // Calculer la position avec prise en compte du scroll
+        const scrollOffset = window.pageYOffset || document.documentElement.scrollTop;
+
         main_div.id = parent.id;
 
-        let div_btn_edit = document.createElement("div");
-        div_btn_edit.classList.add("div_btn_lire");
 
-        let text_btn = document.createElement("a");
-        text_btn.innerHTML = 'EDIT';
 
-        text_btn.addEventListener("click", function () {
-            window.location.href = `/editor?id=${main_div.id}`;
-        });
+        main_div.style.top = `${parentRect.top - 25 + scrollOffset}px`; // Ajouter le décalage de scroll à la position Y
+        main_div.style.left = `${parentRect.left - containerRect.left + 15}px`; // Position X
+        main_div.style.height = `${25}px`; // Adapter la hauteur
+        main_div.style.width = `${parent.offsetWidth}px`; // Adapter la largeur
 
-        div_btn_edit.appendChild(text_btn);
-        main_div.appendChild(div_btn_edit);
-
-        let div_btn_lire = document.createElement("div");
-        div_btn_lire.classList.add("div_btn_lire");
-
-        text_btn = document.createElement("a");
-        text_btn.innerHTML = 'LIRE';
-
-        div_btn_lire.appendChild(text_btn);
-        main_div.appendChild(div_btn_lire);
-
-        let div_btn_supp = document.createElement("div");
-        div_btn_supp.classList.add("div_btn_supp");
-
-        text_btn = document.createElement("a");
-        text_btn.innerHTML = 'DELETE';
-        text_btn.addEventListener("click", function () {
-            let delete_bool = confirm('Voulez-vous supprimer cette fiche ?');
-            if (delete_bool) {
-                deleteFiche(main_div.id);
-            }
-        });
-
-        div_btn_supp.appendChild(text_btn);
-        main_div.appendChild(div_btn_supp);
-
-        document.querySelector('.historique_div_all').appendChild(main_div); // Ajouter au conteneur parent
     }
-    
-    main_div.style.width ="0px";
-    // Positionner main_div au-dessus de parent
-    const parentRect = parent.getBoundingClientRect();
-    const containerRect = document.querySelector('.historique_div_all').getBoundingClientRect();
-    parent.classList.add("hovered");
-
-    // Calculer la position avec prise en compte du scroll
-    const scrollOffset = window.pageYOffset || document.documentElement.scrollTop;
-    
-    main_div.id = parent.id;
-
-    
-    
-    main_div.style.top = `${parentRect.top - 25 + scrollOffset}px`; // Ajouter le décalage de scroll à la position Y
-    main_div.style.left = `${parentRect.left - containerRect.left + 15}px`; // Position X
-    main_div.style.height = `${25}px`; // Adapter la hauteur
-    main_div.style.width = `${parent.offsetWidth}px`; // Adapter la largeur
-
-}
 
 
     function hide_barre_fiche() {
@@ -206,7 +216,7 @@
 
         if (main_div) {
             main_div.style.width = '0px';
-            
+
         }
     }
 
@@ -253,12 +263,18 @@
         return fiches_div;
     }
 
-    function add_fiche_groupe(id,parent) {
+    function add_fiche_groupe(id, parent) {
         const new_div = document.createElement("div");
         new_div.classList.add("parent_liste");
         new_div.id = id;
         new_div.addEventListener('click', function () {
-            window.location.href = `/editor?id=${new_div.id}`
+            if (navigator.userAgent.toLowerCase().includes('mobile')) {
+                setTimeout(() => {
+                    // window.location.href = `/editor?id=${new_div.id}`;
+                }, 100); // Petit délai pour améliorer la fluidité
+            } else {
+                window.location.href = `/editor?id=${new_div.id}`;
+            }
         });
 
         parent.appendChild(new_div);
@@ -290,7 +306,7 @@
                 fiches.forEach(fiche => {
                     donne = JSON.parse(fiche.JSON_Storage)
                     localStorage.setItem('fiche', JSON.stringify(donne));
-                    add_fiche_groupe(fiche.id_fiche,parent);
+                    add_fiche_groupe(fiche.id_fiche, parent);
                 });
             });
         }
