@@ -26,3 +26,12 @@ For this project, I wanted to prioritize security above all. Therefore, there is
 
 - ### Encryption:
   The secondary key is used to encrypt all sensitive text data related to the user.
+
+## Home page
+
+![image](https://github.com/user-attachments/assets/3b2ec84f-00f4-41a3-890b-b9fd7b529c05)
+
+- On this page, you will find all your notes, as well as all your _subject_ groups. The notes are interactive, and you can already `scroll` through the content of the note.
+
+You can open the editor:
+![image](https://github.com/user-attachments/assets/afd1b1a5-7165-41cb-99e7-ea5aa74ca83d)
