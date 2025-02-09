@@ -1,2 +1,2 @@
 # Fiche-V2
- version 2 du systemme des fiches
+ version 2 du système des fiches
